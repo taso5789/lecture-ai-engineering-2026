@@ -46,3 +46,29 @@ def test_default_question_of_lecture1_is_answerable_from_glossary():
     assert "3レベル" in DEFAULT_QUESTION
     hits = json.loads(tools.search_glossary("3レベル"))
     assert hits[0]["term"] == "宿題の3レベル"
+
+
+def test_make_quiz_uses_term_of_the_lecture():
+    for _ in range(10):
+        quiz = json.loads(tools.make_quiz(2))
+        entry = next(e for e in tools.load_glossary() if e["term"] == quiz["term"])
+        assert entry["lecture"] == 2
+        assert quiz["term"] in quiz["question"]
+        assert quiz["answer"] == entry["definition"]
+
+
+def test_make_quiz_reports_missing_lecture():
+    assert "用語集にありません" in tools.make_quiz(99)
+
+
+def test_save_learning_log_appends_to_daily_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(tools, "LOG_DIR", tmp_path / "learning_log")
+    assert "保存しました" in tools.save_learning_log("LoRA", "低ランク行列だけを学習する")
+    assert "保存しました" in tools.save_learning_log("QLoRA", "量子化と組み合わせる")
+    [log] = (tmp_path / "learning_log").glob("*.md")
+    text = log.read_text(encoding="utf-8")
+    assert "LoRA" in text and "QLoRA" in text
+
+
+def test_save_learning_log_rejects_empty():
+    assert "指定してください" in tools.save_learning_log("", "メモ")
